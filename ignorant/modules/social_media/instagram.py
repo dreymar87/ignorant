@@ -20,32 +20,119 @@ def generate_data( phone_number_raw):
             }
     return data
 
-async def instagram(phone, country_code, client, out):
+async def instagram(phone, country_code, email, client, out):
     name = "instagram"
     domain = "instagram.com"
     method = "other"
     frequent_rate_limit=False
 
-    data=generate_signature(json.dumps(generate_data(str(country_code)+str(phone))))
-    headers={
-    "Accept-Language": "en-US",
-    "User-Agent": "Instagram 101.0.0.15.120",
-    "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-    "Accept-Encoding": "gzip, deflate",
-    "X-FB-HTTP-Engine": "Liger",
-    "Connection": "close"}
-    try:
-        r = await client.post(USERS_LOOKUP_URL,headers=headers,data=data)
-        rep=r.json()
-        if "message" in rep.keys() and rep["message"]=="No users found":
+    # Handle phone lookup
+    if phone:
+        data=generate_signature(json.dumps(generate_data(str(country_code)+str(phone))))
+        headers={
+        "Accept-Language": "en-US",
+        "User-Agent": "Instagram 101.0.0.15.120",
+        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+        "Accept-Encoding": "gzip, deflate",
+        "X-FB-HTTP-Engine": "Liger",
+        "Connection": "close"}
+        try:
+            r = await client.post(USERS_LOOKUP_URL,headers=headers,data=data)
+            rep=r.json()
+            if "message" in rep.keys() and rep["message"]=="No users found":
+                out.append({"name": name,"domain":domain,"method":method,"frequent_rate_limit":frequent_rate_limit,
+                            "rateLimit": False,
+                            "exists": False})
+            else:
+                out.append({"name": name,"domain":domain,"method":method,"frequent_rate_limit":frequent_rate_limit,
+                            "rateLimit": False,
+                            "exists": True})
+        except :
             out.append({"name": name,"domain":domain,"method":method,"frequent_rate_limit":frequent_rate_limit,
-                        "rateLimit": False,
+                        "rateLimit": True,
                         "exists": False})
-        else:
-            out.append({"name": name,"domain":domain,"method":method,"frequent_rate_limit":frequent_rate_limit,
+    # Handle email lookup
+    elif email:
+        headers = {
+            "User-Agent": random.choice(ua["browsers"]["chrome"]),
+            "Accept": "*/*",
+            "Accept-Language": "en-US,en;q=0.5",
+            "X-Requested-With": "XMLHttpRequest",
+            "Connection": "close",
+        }
+        try:
+            # Instagram signup API to check email availability
+            url = "https://www.instagram.com/accounts/web_create_ajax/attempt/"
+
+            # Get initial page for CSRF token
+            init_response = await client.get("https://www.instagram.com/accounts/emailsignup/", headers=headers)
+
+            # Extract CSRF token from cookies
+            csrf_token = init_response.cookies.get("csrftoken", "")
+
+            # Add CSRF to headers
+            headers["X-CSRFToken"] = csrf_token
+            headers["Referer"] = "https://www.instagram.com/accounts/emailsignup/"
+
+            # Check email availability
+            data = {
+                "email": email,
+                "username": "",
+                "first_name": "",
+                "opt_into_one_tap": "false"
+            }
+
+            response = await client.post(url, headers=headers, data=data, follow_redirects=True)
+
+            if response.status_code == 200:
+                result = response.json()
+                # If email is available (errors about email being taken)
+                if "errors" in result and "email" in result["errors"]:
+                    error_msg = str(result["errors"]["email"])
+                    if "Another account is using" in error_msg or "already in use" in error_msg.lower():
+                        out.append({
+                            "name": name,
+                            "domain": domain,
+                            "method": method,
+                            "frequent_rate_limit": frequent_rate_limit,
+                            "rateLimit": False,
+                            "exists": True
+                        })
+                    else:
+                        out.append({
+                            "name": name,
+                            "domain": domain,
+                            "method": method,
+                            "frequent_rate_limit": frequent_rate_limit,
+                            "rateLimit": False,
+                            "exists": False
+                        })
+                else:
+                    # No email error means it's available
+                    out.append({
+                        "name": name,
+                        "domain": domain,
+                        "method": method,
+                        "frequent_rate_limit": frequent_rate_limit,
                         "rateLimit": False,
-                        "exists": True})
-    except :
-        out.append({"name": name,"domain":domain,"method":method,"frequent_rate_limit":frequent_rate_limit,
+                        "exists": False
+                    })
+            else:
+                # Rate limited or other error
+                out.append({
+                    "name": name,
+                    "domain": domain,
+                    "method": method,
+                    "frequent_rate_limit": frequent_rate_limit,
                     "rateLimit": True,
-                    "exists": False})
+                    "exists": False
+                })
+        except:
+            out.append({
+                "name": name,
+                "domain": domain,
+                "method": method,
+                "frequent_rate_limit": frequent_rate_limit,
+                "rateLimit": True,
+                "exists": False
+            })

@@ -80,22 +80,27 @@ def credit():
     print('For BTC Donations : 1FHDM49QfZX6pJmhjLE5tB2K6CaTLMZpXZ')
 
 
-def print_result(data,args,phone, country_code,start_time,websites):
+def print_result(data,args,phone, country_code,email,start_time,websites):
     def print_color(text,color,args):
         if args.nocolor == False:
             return(colored(text,color))
         else:
             return(text)
 
-    description = print_color("[+] Phone number used","green",args) + "," + print_color(" [-] Phone number not used", "magenta",args) + "," + print_color(" [x] Rate limit","red",args)
-    full_number="+"+str(country_code)+" "+str(phone)
+    if email:
+        description = print_color("[+] Email found","green",args) + "," + print_color(" [-] Email not found", "magenta",args) + "," + print_color(" [x] Rate limit","red",args)
+        display_value = email
+    else:
+        description = print_color("[+] Phone number used","green",args) + "," + print_color(" [-] Phone number not used", "magenta",args) + "," + print_color(" [x] Rate limit","red",args)
+        display_value = "+"+str(country_code)+" "+str(phone)
+
     if args.noclear==False:
         print("\033[H\033[J")
     else:
         print("\n")
-    print("*" * (len(full_number) + 6))
-    print("   " + full_number)
-    print("*" * (len(full_number) + 6))
+    print("*" * (len(display_value) + 6))
+    print("   " + display_value)
+    print("*" * (len(display_value) + 6))
 
     for results in data:
         if results["rateLimit"] and args.onlyused == False:
@@ -114,25 +119,24 @@ def print_result(data,args,phone, country_code,start_time,websites):
           str(round(time.time() - start_time, 2)) + " seconds")
 
 
-async def launch_module(module, phone, country_code, client, out):
-    data={'amazon':'amazon.com','instagram':'instagram.com','snapchat': 'snapchat.com'}
+async def launch_module(module, phone, country_code, email, client, out):
+    data={'amazon':'amazon.com','instagram':'instagram.com','snapchat': 'snapchat.com',
+          'facebook':'facebook.com','twitter':'twitter.com','linkedin':'linkedin.com',
+          'tiktok':'tiktok.com','pinterest':'pinterest.com'}
     try:
-        await module(phone, country_code, client, out)
+        await module(phone, country_code, email, client, out)
     except :
         name=str(module).split('<function ')[1].split(' ')[0]
-        out.append({"name": name,"domain":data[name],
+        out.append({"name": name,"domain":data.get(name, "unknown"),
                     "rateLimit": True,
                     "exists": False})
 async def maincore():
     parser= ArgumentParser(description=f"ignorant v{__version__}")
-    parser.add_argument("country_code",
-                    nargs='+', metavar='country code',
-                    help="Country code of the phone (Example +1)")
-    parser.add_argument("phone",
-                    nargs='+', metavar='phone number',
-                    help="Target phone example (345568554)")
+    parser.add_argument("input",
+                    nargs='+', metavar='input',
+                    help="Email address OR country code followed by phone number (e.g., 'user@example.com' or '1 5551234567')")
     parser.add_argument("--only-used", default=False, required=False,action="store_true",dest="onlyused",
-                    help="Displays only the sites used by the target email address.")
+                    help="Displays only the sites used by the target.")
     parser.add_argument("--no-color", default=False, required=False,action="store_true",dest="nocolor",
                     help="Don't color terminal output")
     parser.add_argument("--no-clear", default=False, required=False,action="store_true",dest="noclear",
@@ -143,8 +147,32 @@ async def maincore():
     check_update()
     args = parser.parse_args()
     credit()
-    country_code=args.country_code[0]
-    phone=args.phone[0]
+
+    # Parse input to determine if email or phone
+    input_list = args.input
+    if len(input_list) == 1 and '@' in input_list[0]:
+        # Email mode
+        email = input_list[0]
+        phone = None
+        country_code = None
+        input_type = 'email'
+    elif len(input_list) == 2:
+        # Phone mode
+        country_code = input_list[0]
+        phone = input_list[1]
+        email = None
+        input_type = 'phone'
+    elif len(input_list) == 1:
+        # Could be phone with country code prefix
+        if input_list[0].startswith('+'):
+            print("Error: Please provide country code and phone number separately (e.g., ignorant 1 5551234567)")
+            sys.exit(1)
+        else:
+            print("Error: Invalid input. Provide email (user@example.com) or country code + phone (1 5551234567)")
+            sys.exit(1)
+    else:
+        print("Error: Too many arguments. Provide email (user@example.com) or country code + phone (1 5551234567)")
+        sys.exit(1)
 
     # Import Modules
     modules = import_submodules("ignorant.modules")
@@ -161,14 +189,14 @@ async def maincore():
     trio.lowlevel.add_instrument(instrument)
     async with trio.open_nursery() as nursery:
         for website in websites:
-            nursery.start_soon(launch_module, website, phone, country_code, client, out)
+            nursery.start_soon(launch_module, website, phone, country_code, email, client, out)
     trio.lowlevel.remove_instrument(instrument)
     # Sort by modules names
     out = sorted(out, key=lambda i: i['name'])
     # Close the client
     await client.aclose()
     # Print the result
-    print_result(out,args,phone, country_code,start_time,websites)
+    print_result(out,args,phone, country_code,email,start_time,websites)
     credit()
 def main():
     trio.run(maincore)

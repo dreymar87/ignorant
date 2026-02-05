@@ -1,11 +1,15 @@
 from ignorant.core import *
 from ignorant.localuseragent import *
 
-async def amazon(phone, country_code, client, out):
+async def amazon(phone, country_code, email, client, out):
     name = "amazon"
     domain = "amazon.com"
     method = "login"
     frequent_rate_limit=False
+
+    # Only works with phone numbers
+    if not phone:
+        return
 
     headers = {"User-agent": random.choice(ua["browsers"]["chrome"])}
     try:
