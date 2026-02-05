@@ -2,7 +2,7 @@ from ignorant.core import *
 from ignorant.localuseragent import *
 
 
-async def twitter(phone, country_code, email, client, out):
+async def twitter(phone, country_code, email, username, client, out):
     name = "twitter"
     domain = "twitter.com"
     method = "register"
@@ -102,12 +102,13 @@ async def twitter(phone, country_code, email, client, out):
                     "rateLimit": False,
                     "exists": True
                 })
-    except:
+    except Exception as e:
         out.append({
             "name": name,
             "domain": domain,
             "method": method,
             "frequent_rate_limit": frequent_rate_limit,
             "rateLimit": True,
-            "exists": False
+            "exists": False,
+            "error": str(type(e).__name__)
         })

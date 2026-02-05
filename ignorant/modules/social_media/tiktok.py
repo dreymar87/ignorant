@@ -2,7 +2,7 @@ from ignorant.core import *
 from ignorant.localuseragent import *
 
 
-async def tiktok(phone, country_code, email, client, out):
+async def tiktok(phone, country_code, email, username, client, out):
     name = "tiktok"
     domain = "tiktok.com"
     method = "register"
@@ -154,12 +154,13 @@ async def tiktok(phone, country_code, email, client, out):
                 "exists": False
             })
 
-    except:
+    except Exception as e:
         out.append({
             "name": name,
             "domain": domain,
             "method": method,
             "frequent_rate_limit": frequent_rate_limit,
             "rateLimit": True,
-            "exists": False
+            "exists": False,
+            "error": str(type(e).__name__)
         })

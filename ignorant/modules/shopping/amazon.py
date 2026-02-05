@@ -1,11 +1,11 @@
 from ignorant.core import *
 from ignorant.localuseragent import *
 
-async def amazon(phone, country_code, email, client, out):
+async def amazon(phone, country_code, email, username, client, out):
     name = "amazon"
     domain = "amazon.com"
     method = "login"
-    frequent_rate_limit=False
+    frequent_rate_limit = False
 
     # Only works with phone numbers
     if not phone:
@@ -29,8 +29,8 @@ async def amazon(phone, country_code, email, client, out):
             out.append({"name": name,"domain":domain,"method":method,"frequent_rate_limit":frequent_rate_limit,
                         "rateLimit": False,
                         "exists": False})
-    except :
-        out.append({"name": name,"domain":domain,"method":method,"frequent_rate_limit":frequent_rate_limit,
+    except Exception as e:
+        out.append({"name": name, "domain": domain, "method": method, "frequent_rate_limit": frequent_rate_limit,
                     "rateLimit": True,
                     "exists": False,
-                    "emailrecovery": None})
+                    "error": str(type(e).__name__)})

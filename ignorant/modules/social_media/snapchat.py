@@ -2,11 +2,11 @@ from ignorant.core import *
 from ignorant.localuseragent import *
 
 
-async def snapchat(phone, country_code, email, client, out):
+async def snapchat(phone, country_code, email, username, client, out):
     name = "snapchat"
     domain = "snapchat.com"
     method = "register"
-    frequent_rate_limit=False
+    frequent_rate_limit = False
 
     # Only works with phone numbers
     if not phone:
@@ -27,7 +27,7 @@ async def snapchat(phone, country_code, email, client, out):
     }
     try:
         response = await client.get("https://accounts.snapchat.com", headers=headers)
-    except :
+    except Exception as e:
         out.append({"name": name,"domain":domain,"method":method,"frequent_rate_limit":frequent_rate_limit,
                     "rateLimit": True,
                     "exists": False})

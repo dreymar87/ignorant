@@ -2,7 +2,7 @@ from ignorant.core import *
 from ignorant.localuseragent import *
 
 
-async def facebook(phone, country_code, email, client, out):
+async def facebook(phone, country_code, email, username, client, out):
     name = "facebook"
     domain = "facebook.com"
     method = "register"
@@ -22,32 +22,27 @@ async def facebook(phone, country_code, email, client, out):
     }
 
     try:
-        # Use Facebook's account recovery endpoint
-        url = "https://www.facebook.com/login/identify/?ctx=recover&ars=facebook_login&from_login_screen=0"
+        # Use Facebook's login endpoint to check email
+        url = "https://www.facebook.com/login.php"
 
-        # First, get the page to extract form tokens
-        response = await client.get(url, headers=headers, follow_redirects=True)
-        soup = BeautifulSoup(response.text, 'html.parser')
+        # Attempt login with email and dummy password
+        login_data = {
+            "email": email,
+            "pass": "dummy_password_12345"
+        }
 
-        # Extract necessary form data
-        form_data = {}
-        for input_tag in soup.find_all('input', {'type': ['hidden', 'submit']}):
-            if input_tag.get('name') and input_tag.get('value'):
-                form_data[input_tag['name']] = input_tag['value']
-
-        # Add the email to search for
-        form_data['email'] = email
-
-        # Submit the form
-        post_url = "https://www.facebook.com/ajax/login/help/identify.php?ctx=recover"
-        response = await client.post(post_url, headers=headers, data=form_data, follow_redirects=True)
-
-        # Check response for account existence
+        response = await client.post(url, headers=headers, data=login_data, follow_redirects=True)
         response_text = response.text.lower()
 
-        # Facebook returns different responses based on whether account exists
-        # If account doesn't exist, it shows "no results found" or "couldn't find your account"
-        if "no results found" in response_text or "couldn't find" in response_text or "no account found" in response_text:
+        # Check for specific indicators
+        # If account doesn't exist, Facebook says "couldn't find your account" or similar
+        if any(phrase in response_text for phrase in [
+            "couldn't find your account",
+            "the email you entered isn't connected",
+            "no account found",
+            "find your account",
+            "recover your account"
+        ]):
             out.append({
                 "name": name,
                 "domain": domain,
@@ -56,8 +51,28 @@ async def facebook(phone, country_code, email, client, out):
                 "rateLimit": False,
                 "exists": False
             })
+        # If account exists, Facebook asks for password or shows "wrong password"
+        elif any(phrase in response_text for phrase in [
+            "the password you've entered is incorrect",
+            "wrong password",
+            "incorrect password",
+            "login_error"
+        ]):
+            out.append({
+                "name": name,
+                "domain": domain,
+                "method": method,
+                "frequent_rate_limit": frequent_rate_limit,
+                "rateLimit": False,
+                "exists": True
+            })
         # If captcha or rate limit
-        elif "captcha" in response_text or "security check" in response_text:
+        elif any(phrase in response_text for phrase in [
+            "captcha",
+            "security check",
+            "checkpoint",
+            "try again later"
+        ]):
             out.append({
                 "name": name,
                 "domain": domain,
@@ -67,21 +82,23 @@ async def facebook(phone, country_code, email, client, out):
                 "exists": False
             })
         else:
-            # Account likely exists
+            # Unknown response, mark as rate limited to be safe
             out.append({
                 "name": name,
                 "domain": domain,
                 "method": method,
                 "frequent_rate_limit": frequent_rate_limit,
-                "rateLimit": False,
-                "exists": True
+                "rateLimit": True,
+                "exists": False
             })
-    except:
+    except Exception as e:
+        # Specific error handling instead of bare except
         out.append({
             "name": name,
             "domain": domain,
             "method": method,
             "frequent_rate_limit": frequent_rate_limit,
             "rateLimit": True,
-            "exists": False
+            "exists": False,
+            "error": str(type(e).__name__)
         })

@@ -20,7 +20,7 @@ def generate_data( phone_number_raw):
             }
     return data
 
-async def instagram(phone, country_code, email, client, out):
+async def instagram(phone, country_code, email, username, client, out):
     name = "instagram"
     domain = "instagram.com"
     method = "other"
@@ -47,10 +47,74 @@ async def instagram(phone, country_code, email, client, out):
                 out.append({"name": name,"domain":domain,"method":method,"frequent_rate_limit":frequent_rate_limit,
                             "rateLimit": False,
                             "exists": True})
-        except :
+        except Exception as e:
             out.append({"name": name,"domain":domain,"method":method,"frequent_rate_limit":frequent_rate_limit,
                         "rateLimit": True,
                         "exists": False})
+    # Handle username lookup
+    elif username:
+        headers = {
+            "User-Agent": random.choice(ua["browsers"]["chrome"]),
+            "Accept": "*/*",
+            "Accept-Language": "en-US,en;q=0.5",
+            "Connection": "close",
+        }
+        try:
+            # Instagram profile page check
+            url = f"https://www.instagram.com/{username}/"
+            response = await client.get(url, headers=headers, follow_redirects=True)
+
+            # If profile exists, status code is 200 and contains specific elements
+            if response.status_code == 200:
+                response_text = response.text.lower()
+                # Check if it's a valid profile page (not a 404 page)
+                if "not found" in response_text or "this page isn't available" in response_text:
+                    out.append({
+                        "name": name,
+                        "domain": domain,
+                        "method": method,
+                        "frequent_rate_limit": frequent_rate_limit,
+                        "rateLimit": False,
+                        "exists": False
+                    })
+                else:
+                    out.append({
+                        "name": name,
+                        "domain": domain,
+                        "method": method,
+                        "frequent_rate_limit": frequent_rate_limit,
+                        "rateLimit": False,
+                        "exists": True
+                    })
+            elif response.status_code == 404:
+                out.append({
+                    "name": name,
+                    "domain": domain,
+                    "method": method,
+                    "frequent_rate_limit": frequent_rate_limit,
+                    "rateLimit": False,
+                    "exists": False
+                })
+            else:
+                # Rate limited or other error
+                out.append({
+                    "name": name,
+                    "domain": domain,
+                    "method": method,
+                    "frequent_rate_limit": frequent_rate_limit,
+                    "rateLimit": True,
+                    "exists": False
+                })
+        except Exception as e:
+            out.append({
+                "name": name,
+                "domain": domain,
+                "method": method,
+                "frequent_rate_limit": frequent_rate_limit,
+                "rateLimit": True,
+                "exists": False,
+                "error": str(type(e).__name__)
+            })
     # Handle email lookup
     elif email:
         headers = {
@@ -127,12 +191,13 @@ async def instagram(phone, country_code, email, client, out):
                     "rateLimit": True,
                     "exists": False
                 })
-        except:
+        except Exception as e:
             out.append({
                 "name": name,
                 "domain": domain,
                 "method": method,
                 "frequent_rate_limit": frequent_rate_limit,
                 "rateLimit": True,
-                "exists": False
+                "exists": False,
+                "error": str(type(e).__name__)
             })
